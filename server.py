@@ -9,11 +9,11 @@ from autobahn.twisted.websocket import WebSocketServerFactory, \
 connection_pool = {}
 
 
-class SenzServerProtocol(WebSocketServerProtocol):
+class MHomeServerProtocol(WebSocketServerProtocol):
     """
     Sensors server to manage websocket connections, basically create wesocket
     connection and listen to it
-    incoming messges parse by QueryParser and delegate task to approprite
+    Incoming messges parse by QueryParser and delegate task to approprite
     manager according to Query
     """
     def onConnect(self, response):
@@ -312,7 +312,7 @@ if __name__ == '__main__':
     # start web socket server
     # we listen to websocket on 10.2.4.14:9000
     factory = WebSocketServerFactory("ws://10.2.2.132:9000")
-    factory.protocol = SenzServerProtocol
+    factory.protocol = MHomeServerProtocol
 
     reactor.listenTCP(9000, factory)
     reactor.run()
