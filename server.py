@@ -72,13 +72,13 @@ class MHomeServerProtocol(WebSocketServerProtocol):
             # delegate to handle_login
             self.handle_login(binary=binary, query=query)
 
-        elif query.command == 'GET' or query.command == 'DATA':
-            # delegate task to handle_get
-            self.handle_get(query)
+        elif query.command == 'PUT':
+            # delegate task to handle_put
+            self.handle_put(binary=binary, query=query)
 
-        elif query.command == 'SHARE':
-            # delegate to handle_share
-            self.handle_share(binary=binary, query=query)
+        elif query.command == 'DATA':
+            # delegate task to handle_put
+            connection_pool[query.user].sendMessage('DONE', binary)
 
     def handle_login(self, binary, query):
         """
@@ -101,55 +101,26 @@ class MHomeServerProtocol(WebSocketServerProtocol):
         Returns:
             login success or not
         """
-        # use default status to 'success'
-        status = 'success'
-
-        # TODO implement authentication mechnism
         user = query.parameters['username']
         if user not in connection_pool:
             # add user if user dosent have connection yet
             # we store web socket connections in connection_pool
             connection_pool[user] = self
+
+            self.sendMessage('LOGIN_SUCCESS', binary)
         else:
             # alredy have a connection
             # login fail
-            status = 'fail'
+            self.sendMessage('LOGIN_FAIL', binary)
 
-        # get loing status message and send too user
-        #status = self.get_status_query(query, status)
-        status = "PUT #switch kitchen @eranga"
-        self.sendMessage(status, binary)
-
-    def handle_share(self, binary, query):
+    def handle_put(self, binary, query):
         """
-        handle sharing functionality between users
-        when Share query comes need to veryfy sharing users, then need to swap
-        query parametes and send to matching user
-
-        for a instance, if query comes 'SHARE #tp @user1', first need to veryfy
-        user1 is logged in, if logged in need to replace 'user1' with
-        requesting users username (for a instance 'user2'). for final query
-        would be 'SHARE #tp @user2' and it sends to user1
-
-        finally create status query and send it to corresponding user, status
-        query contains SHARE success/fail status
-
-        to complete sharing sharing user and requesting user need to logged in
-        to the system
-
-        Args:
-            query: generated query
-
-        Returns:
-            share success or not
+        handle PUT query here(switching queries)
         """
-        # use default status to 'success'
-        status = 'success'
-
         # verify requesting user(currently connected/self user)
         # if authenticated current connection/self should be in connecion_pool
         if self in connection_pool.values():
-            # verify shareing user have a connection (logged in)
+            # verify PUT user have a connection (logged in)
             # user need to be logged in to continue
             if query.user in connection_pool:
                 # find current user from connection pool
@@ -157,74 +128,9 @@ class MHomeServerProtocol(WebSocketServerProtocol):
 
                 # replace user parameter in query
                 # send query to matching user
-                swaped_query = self.swap_query(query, request_user)
-                connection_pool[query.user].sendMessage(swaped_query,
-                                                        False)
-            else:
-                # user dont have connection
-                # teminate share request
-                status = 'fail'
-        else:
-            # unauthenticated user
-            status = 'fail'
-
-        # get share status message and send to user
-        status = self.get_status_query(query, status)
-        self.sendMessage(status, binary)
-
-    def handle_get(self, query):
-        """
-        handle sharing functionality between users
-        when Share query comes need to veryfy sharing users, then need to swap
-        query parametes and send to matching user
-
-        for a instance, if query comes 'SHARE #tp @user1', first need to veryfy
-        user1 is logged in, if logged in need to replace 'user1' with
-        requesting users username (for a instance 'user2'). for final query
-        would be 'SHARE #tp @user2' and it sends to user1
-
-        to complete sharing sharing user and requesting user need to logged in
-        to the system
-
-        Args:
-            query: generated query
-
-        Returns:
-            share success or not
-        """
-        # verify requesting user(currently connected/self user)
-        # if authenticated current connection/self should be in connecion_pool
-        if self in connection_pool.values():
-            # verify shareing user have a connection (logged in)
-            # user need to be logged in to continue
-            if query.user in connection_pool:
-                # find current user from connection pool
-                request_user = self.get_user(self)
-
-                # differnet scenario for DATA queries
-                # swaping happend in difernt way
-                if query.command == 'DATA':
-                    swapped_data_query = self.swap_data_query(query,
-                                                              request_user)
-                    connection_pool[query.user].sendMessage(swapped_data_query,
-                                                            False)
-
-                    return True
-
-                # replace user parameter in query
-                # send query to matching user
-                swaped_query = self.swap_query(query, request_user)
-                connection_pool[query.user].sendMessage(swaped_query,
-                                                        False)
-                return True
-
-            else:
-                # user dont have connection
-                # teminate share request
-                return False
-        else:
-            # unauthenticated user
-            return False
+                swaped_query = query.command + ' #switch ' +  \
+                        query.parameters['switch'] + ' @' + request_user
+                connection_pool[query.user].sendMessage(swaped_query, binary)
 
     def get_user(self, connection):
         """
@@ -246,66 +152,6 @@ class MHomeServerProtocol(WebSocketServerProtocol):
                 return key
 
         return None
-
-    def swap_query(self, query, user):
-        """
-        replace user in query onbject and generate new query string
-
-        for a instance, if query comes 'SHARE #tp @user1', first need to veryfy
-        user1 is logged in, if logged in need to replace 'user1' with
-        requesting users username (for a instance 'user2'). for final query
-        would be 'SHARE #tp @user2' and it sends to user1
-
-        Args:
-            query: Query object
-            user: new user
-
-        returns:
-            swapped query
-        """
-        return query.command + " " + query.parameters['param'] + " @" + user
-
-    def swap_data_query(self, query, user):
-        """
-        replace user in query onbject and generate new query string, we have
-        query attributes in DATA queries so need to add them as well wend
-        swapping
-
-        for a instance, if query comes 'DATA #gps colombo  @user1', first need
-        to veryfy user1 is logged in, if logged in need to replace 'user1' with
-        requesting users username (for a instance 'user2'). for final query
-        would be 'DATA #gps colombo @user2' and it sends to user1
-
-        Args:
-            query: Query object
-            user: new user
-
-        returns:
-            swapped query
-        """
-        # TODO add DATA query swaping logic
-        return query.command + " " + "#gps " + query.parameters['gps'] + \
-                                                                " @" + user
-
-    def get_status_query(self, query, status):
-        """
-        generate status query for login and share
-        this inculde LOGIN and SHARE success/fail status
-        for a instance
-            1. login success    LOGIN #status success
-            2. login fail       LOGIN #status fail
-            3. share succcess   SHARE @user1 #status success
-            4. share fail       SHARE @user1 #status fail
-
-        Args:
-            query: Query object
-            status: sucess/fail status
-
-        Returns:
-            status query
-        """
-        status_query = "STATUS" + " #" + query.command + " " + status
-        return status_query
 
 
 if __name__ == '__main__':

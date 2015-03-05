@@ -24,7 +24,7 @@ class Parser():
         """
         # define query commands
         # we support only for 4 commands
-        command_list = ['LOGIN', 'GET', 'SHARE', 'DATA']
+        command_list = ['LOGIN', 'GET', 'SHARE', 'DATA', 'PUT']
 
         # define to hold parametes and data
         command = 'LOGIN'
@@ -47,8 +47,8 @@ class Parser():
             elif token.startswith('#'):
                 # query parameter fround
                 # need to store in dictionlary
-                if command == 'LOGIN' or command == 'DATA':
-                    # differnet scenarion for LOGIN and DATA queries
+                if command == 'LOGIN' or command == 'DATA' or 'PUT':
+                    # differnet scenarion for LOGIN, DATA and PUT queries
                     # these queries comes with following format
                     #   field value (ex: #tp 30)
                     parameters[token[1:]] = token_list.pop(0)
